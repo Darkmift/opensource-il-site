@@ -106,6 +106,23 @@ export async function fetchGithubMd() {
   }
 }
 
+function makeGQLQuery(gqlBody: {
+  query: string;
+  variables: { repoOwner: string; repoName: string } | { login: string };
+}) {
+  try {
+    return fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      mode: 'cors',
+      headers: headersList,
+      body: JSON.stringify(gqlBody)
+    });
+  } catch (error) {
+    logger.error('🚀 ~ file: dataManager.service.ts:124 ~ error:', error);
+    return null;
+  }
+}
+
 async function getCompany(company: { name: string }) {
   const gqlBody: { query: string; variables: { login: string } } = {
     query: `query ($login: String!) {
@@ -151,25 +168,15 @@ async function getCompany(company: { name: string }) {
     variables: { login: company.name }
   };
 
-  return await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    mode: 'cors',
-    headers: headersList,
-    body: JSON.stringify(gqlBody)
-  })
-    .then((res) => {
-      const gqlResult = res.json();
-      logger.info(
-        '🚀 ~ file: dataManager.service.ts:162 ~ getCompany ~ gqlResult:',
-        {
-          company,
-          gqlResult,
-          gqlResultText: res.text()
-        }
-      );
-      return gqlResult;
-    })
-    .catch((err) => logger.error('gqlErr for:' + company.name, err));
+  const data = await makeGQLQuery(gqlBody);
+  return data
+    ? {
+        type: 'company',
+        key: JSON.stringify(company),
+        from: company,
+        data
+      }
+    : null;
 }
 
 async function getProject(project: { name: string }) {
@@ -208,25 +215,15 @@ async function getProject(project: { name: string }) {
     }
   };
 
-  return await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    mode: 'cors',
-    headers: headersList,
-    body: JSON.stringify(gqlBody)
-  })
-    .then((res) => {
-      const gqlResult = res.json();
-      logger.info(
-        '🚀 ~ file: dataManager.service.ts:212 ~ getProject ~ gqlResult:',
-        {
-          project,
-          gqlResult,
-          gqlResultText: res.text()
-        }
-      );
-      return gqlResult;
-    })
-    .catch((err) => logger.error('gqlErr for:' + project.name, err));
+  const data = await makeGQLQuery(gqlBody);
+  return data
+    ? {
+        type: 'repository',
+        key: JSON.stringify(project),
+        from: project,
+        data
+      }
+    : null;
 }
 
 export async function fetchProjects(
@@ -244,22 +241,6 @@ export async function fetchProjects(
       .then((proms) => proms.forEach((p) => results.push(p.data)))
       .then(() => resolve(results));
   });
-
-  // const allResponses = await Promise.allSettled(requests);
-
-  // for (const response of allResponses) {
-  //   if (response.status === 'fulfilled') {
-  //     console.log(
-  //       '🚀 ~ file: dataManager.service.ts:288 ~ response:',
-  //       response
-  //     );
-  //     results.push(response.value.data);
-  //   } else {
-  //     console.error(response.reason);
-  //   }
-  // }
-
-  // return results;
 }
 
 export async function fetchComps(allComps: { name: string }[]) {
